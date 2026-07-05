@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phuket Waste Analytics Dashboard</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Interactive Rainbow Cursor Glow & Splash Canvas -->
+    <canvas id="cursorCanvas" class="cursor-canvas"></canvas>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-icon">
+                    <i data-lucide="trash-2" class="icon-brand"></i>
+                </div>
+                <div>
+                    <h1>Phuket Waste</h1>
+                    <span class="subtitle">Data Control Center</span>
+                </div>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-tab="hero">
+                    <i data-lucide="home"></i> Overview Home
+                </a>
+                <a href="#" class="nav-item" data-tab="dashboard">
+                    <i data-lucide="layout-dashboard"></i> Dashboard
+                </a>
+                <a href="#" class="nav-item" data-tab="upload-section">
+                    <i data-lucide="upload-cloud"></i> Upload Center
+                </a>
+                <a href="#" class="nav-item" data-tab="data-explorer">
+                    <i data-lucide="table"></i> Data Explorer
+                </a>
+                <a href="/download/latest" class="nav-item download-btn-nav" id="btnDownloadLatest" style="display: none;">
+                    <i data-lucide="download"></i> Download Latest Clean
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span class="status-dot online"></span>
+                    <span>System Database Local</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-title">
+                    <h2 id="page-title">Overview Home</h2>
+                    <p class="text-muted" id="page-subtitle">Welcome to the Phuket Waste Data Management Suite.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" id="btnToggleFilters" style="display: none;">
+                        <i data-lucide="sliders-horizontal"></i> Filters
+                    </button>
+                    <button class="btn btn-secondary btn-icon-only" id="btnThemeToggle" title="Toggle Light/Dark Theme">
+                        <i data-lucide="moon" id="theme-toggle-icon"></i>
+                    </button>
+                    <button class="btn btn-secondary" id="btnLoadSample">
+                        <i data-lucide="database"></i> Load Sample Data
+                    </button>
+                    <button class="btn btn-primary" id="btnUploadTrigger">
+                        <i data-lucide="upload"></i> Upload CSV
+                    </button>
+                </div>
+            </header>
+
+            <!-- Hero (Welcome) Tab -->
+            <div class="tab-content" id="hero-tab">
+                <section class="hero-card card">
+                    <div class="hero-badge">SYSTEM VERSION 2.0</div>
+                    <h2 class="hero-title">Phuket Waste Analytics Control Suite</h2>
+                    <p class="hero-description">An advanced, glassmorphic management platform designed to monitor, clean, and explore waste generation patterns, disposal methods, and tourist impacts across Phuket, Thailand.</p>
+                    
+                    <div class="hero-actions-grid">
+                        <div class="hero-action-card card" id="hero-go-dashboard">
+                            <div class="hero-action-icon cyan">
+                                <i data-lucide="layout-dashboard"></i>
+                            </div>
+                            <h4>Analytics Dashboard</h4>
+                            <p>Explore real-time data visualisations, weight telemetry, composition and district distributions.</p>
+                        </div>
+                        <div class="hero-action-card card" id="hero-go-upload">
+                            <div class="hero-action-icon purple">
+                                <i data-lucide="upload-cloud"></i>
+                            </div>
+                            <h4>Upload Center</h4>
+                            <p>Import raw CSV datasets and clean duplicate or empty entries dynamically into SQLite.</p>
+                        </div>
+                        <div class="hero-action-card card" id="hero-go-explorer">
+                            <div class="hero-action-icon orange">
+                                <i data-lucide="table"></i>
+                            </div>
+                            <h4>Data Explorer</h4>
+                            <p>Query, filter, and paginate through the registry of clean database records.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Dashboard Tab -->
+            <div class="tab-content" id="dashboard-tab" style="display: none;">
+                <!-- Stats Dashboard Grid — Spatial KPIs -->
+                <div class="stats-grid" id="db-stats-grid" style="display: none;">
+                    <div class="stat-card card">
+                        <div class="stat-icon-wrapper cyan">
+                            <i data-lucide="weight"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-label">Total Waste Collected</span>
+                            <h3 class="stat-value" id="stat-total-waste">0.00 <span class="unit">tons</span></h3>
+                            <span class="stat-desc" id="stat-total-waste-kg">0 kg</span>
+                        </div>
+                    </div>
+                    <div class="stat-card card">
+                        <div class="stat-icon-wrapper pink">
+                            <i data-lucide="map-pin"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-label">Densest Area</span>
+                            <h3 class="stat-value" id="stat-densest-area" style="font-size: 1.2rem;">—</h3>
+                            <span class="stat-desc">พื้นที่ที่มีขยะมากที่สุด</span>
+                        </div>
+                    </div>
+                    <div class="stat-card card">
+                        <div class="stat-icon-wrapper purple">
+                            <i data-lucide="map"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-label">Areas Analyzed</span>
+                            <h3 class="stat-value" id="stat-area-count">0</h3>
+                            <span class="stat-desc">จำนวนพื้นที่ที่วิเคราะห์</span>
+                        </div>
+                    </div>
+                    <div class="stat-card card">
+                        <div class="stat-icon-wrapper orange">
+                            <i data-lucide="palmtree"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-label">Tourist Zone Impact</span>
+                            <h3 class="stat-value" id="stat-tourist-share">0%</h3>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" id="stat-tourist-bar" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div class="empty-state-card card" id="db-empty-state">
+                    <i data-lucide="cloud-off" class="empty-icon"></i>
+                    <h3>No Waste Data Available</h3>
+                    <p>There are currently no records in the system database. Drag & drop a raw CSV waste file or load the sample data to populate the dashboard charts and telemetry.</p>
+                    <div class="empty-actions">
+                        <button class="btn btn-primary" id="btnEmptyLoadSample">
+                            <i data-lucide="database"></i> Load Sample Dataset
+                        </button>
+                        <button class="btn btn-secondary" id="btnEmptyUpload">
+                            <i data-lucide="upload-cloud"></i> Upload Raw File
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Charts Section — Main Row -->
+                <div class="charts-container" id="db-charts-container" style="display: none;">
+                    <!-- Geo Map: Spatial Density -->
+                    <div class="chart-card card span-3">
+                        <div class="chart-header">
+                            <h4>แผนที่ความหนาแน่นขยะ (Geo Spatial Map)</h4>
+                            <p class="text-muted">แสดงจุดความหนาแน่นของปริมาณขยะตามพื้นที่จริง (ขนาดวงกลมแปรผันตามปริมาณขยะ)</p>
+                        </div>
+                        <div class="chart-body" style="position: relative; height: 450px;">
+                            <div id="geoWasteMap" style="width: 100%; height: 100%; border-radius: 8px; z-index: 1;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Chart 1: Area Waste Density (Horizontal Bar, span-2) -->
+                    <div class="chart-card card span-2">
+                        <div class="chart-header">
+                            <h4>ปริมาณขยะตามพื้นที่ (Area Waste Density)</h4>
+                            <p class="text-muted">ปริมาณขยะรวมในแต่ละตำบล/พื้นที่ — เรียงจากมากไปน้อย</p>
+                        </div>
+                        <div class="chart-body" style="position: relative; height: 350px;">
+                            <canvas id="areaBarChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 2: District Comparison (Bar) -->
+                    <div class="chart-card card">
+                        <div class="chart-header">
+                            <h4>เปรียบเทียบตามอำเภอ (District Comparison)</h4>
+                            <p class="text-muted">ปริมาณขยะรวมแยกตามอำเภอ Mueang, Kathu, Thalang</p>
+                        </div>
+                        <div class="chart-body" style="position: relative; height: 350px;">
+                            <canvas id="districtBarChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 3: Waste Type by District (Stacked Bar) -->
+                    <div class="chart-card card span-2">
+                        <div class="chart-header">
+                            <h4>สัดส่วนประเภทขยะตามอำเภอ (Waste Type by District)</h4>
+                            <p class="text-muted">องค์ประกอบขยะ 4 ประเภทในแต่ละอำเภอ</p>
+                        </div>
+                        <div class="chart-body" style="position: relative; height: 350px;">
+                            <canvas id="districtWasteTypeChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 4: Tourist Zone Doughnut -->
+                    <div class="chart-card card">
+                        <div class="chart-header">
+                            <h4>Tourist Zone vs Standard</h4>
+                            <p class="text-muted">สัดส่วนขยะเขตท่องเที่ยวเทียบพื้นที่ปกติ</p>
+                        </div>
+                        <div class="chart-body" style="position: relative; height: 350px; display: flex; align-items: center; justify-content: center;">
+                            <canvas id="touristDoughnutChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 5: District Trend Over Time (Multi-line, span-2) -->
+                    <div class="chart-card card span-2">
+                        <div class="chart-header">
+                            <h4>แนวโน้มขยะตามอำเภอ (Waste Trend by District)</h4>
+                            <p class="text-muted">ปริมาณขยะรายวันแยกตามอำเภอ แสดงแนวโน้มเชิงเวลา</p>
+                        </div>
+                        <div class="chart-body" style="position: relative; height: 300px;">
+                            <canvas id="districtTrendChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 6: Collection Sites (Horizontal Bar) -->
+                    <div class="chart-card card">
+                        <div class="chart-header">
+                            <h4>จุดรวบรวมขยะ (Collection Sites)</h4>
+                            <p class="text-muted">ปริมาณขยะจากแหล่งรวบรวมต่าง ๆ</p>
+                        </div>
+                        <div class="chart-body" style="position: relative; height: 300px;">
+                            <canvas id="collectionSiteBarChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 7: Disposal Method by District (Stacked Horizontal Bar, full-width) -->
+                    <div class="chart-card card span-3">
+                        <div class="chart-header">
+                            <h4>วิธีกำจัดขยะตามอำเภอ (Disposal Method by District)</h4>
+                            <p class="text-muted">เปรียบเทียบวิธีกำจัดขยะแต่ละวิธีในแต่ละอำเภอ</p>
+                        </div>
+                        <div class="chart-body" style="position: relative; height: 300px;">
+                            <canvas id="districtDisposalChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Insight Summary Section -->
+                <div class="card insight-card" id="db-insight-card" style="display: none;">
+                    <div class="insight-header">
+                        <i data-lucide="lightbulb"></i>
+                        <h4>สรุปผลวิเคราะห์เชิงพื้นที่ (Spatial Insight Summary)</h4>
+                    </div>
+                    <div class="insight-content" id="insight-summary">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Center Tab -->
+            <div class="tab-content" id="upload-section-tab" style="display: none;">
+                <div class="upload-grid">
+                    <!-- Drop Zone -->
+                    <div class="card upload-box-container">
+                        <div class="upload-box" id="drop-zone">
+                            <input type="file" id="file-input" accept=".csv" style="display: none;">
+                            <i data-lucide="upload-cloud" class="upload-box-icon"></i>
+                            <h3>Drag & Drop Raw CSV File</h3>
+                            <p class="text-muted">or click to browse from your computer</p>
+                            <div class="upload-requirements">
+                                <span>Expected columns: date, district, area, waste_type, quantity_kg, collection_site, disposal_method, is_tourist_zone</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Upload Status / Progress -->
+                        <div class="upload-progress-container" id="upload-progress-wrapper" style="display: none;">
+                            <div class="upload-progress-header">
+                                <span id="uploading-filename">file.csv</span>
+                                <span id="uploading-percentage">0%</span>
+                            </div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" id="uploading-bar" style="width: 0%"></div>
+                            </div>
+                            <div class="upload-status-text" id="upload-status-msg">Preparing file upload...</div>
+                        </div>
+                    </div>
+
+                    <!-- Upload History -->
+                    <div class="card history-box">
+                        <div class="card-header">
+                            <h3>Upload Database History</h3>
+                            <p class="text-muted">Datasets currently loaded into SQLite</p>
+                        </div>
+                        <div class="history-list" id="upload-history-list">
+                            <!-- Populated by JavaScript -->
+                            <div class="no-history">No files uploaded yet.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Explorer Tab -->
+            <div class="tab-content" id="data-explorer-tab" style="display: none;">
+                <div class="card table-card">
+                    <div class="table-header">
+                        <div class="table-title">
+                            <h3>Cleaned Data Registry</h3>
+                            <p class="text-muted" id="table-row-counter">Showing 0 of 0 records (filtered)</p>
+                        </div>
+                        <div class="table-actions">
+                            <a href="/download/latest" class="btn btn-secondary btn-sm" id="btnDownloadTable">
+                                <i data-lucide="download"></i> Export latest_clean.csv
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="data-table" id="raw-data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>District</th>
+                                    <th>Area</th>
+                                    <th>Waste Type</th>
+                                    <th>Quantity (kg)</th>
+                                    <th>Collection Site</th>
+                                    <th>Disposal Method</th>
+                                    <th>Tourist Zone</th>
+                                    <th>Source File</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted">No data matches filters or no data uploaded yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="pagination-footer">
+                        <button class="btn btn-text btn-sm" id="btnPrevPage" disabled>Previous</button>
+                        <span id="pagination-info">Page 1 of 1</span>
+                        <button class="btn btn-text btn-sm" id="btnNextPage" disabled>Next</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal-backdrop" id="uploadModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Upload Raw Phuket Waste CSV</h3>
+                <button class="btn-close" id="btnCloseModal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="upload-dropzone-modal" id="modal-drop-zone">
+                    <input type="file" id="modal-file-input" accept=".csv" style="display: none;">
+                    <i data-lucide="file-text" class="modal-upload-icon"></i>
+                    <p>Select or drag a raw Phuket waste CSV dataset</p>
+                    <button class="btn btn-primary btn-sm" id="btnBrowseModal">Browse Files</button>
+                </div>
+                <div class="modal-upload-progress" id="modal-progress-wrapper" style="display: none;">
+                    <div class="upload-progress-header">
+                        <span id="modal-filename">waste.csv</span>
+                        <span id="modal-percentage">0%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="modal-bar" style="width: 0%"></div>
+                    </div>
+                    <div class="upload-status-text" id="modal-status-msg">Cleaning data (removing duplicates and empty rows)...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Drawer -->
+    <div class="filter-drawer-backdrop" id="filterDrawerBackdrop"></div>
+    <div class="filter-drawer" id="filterDrawer">
+        <div class="filter-drawer-header">
+            <h3><i data-lucide="sliders-horizontal"></i> Interactive Filters</h3>
+            <button class="btn btn-secondary btn-icon-only btn-sm" id="btnCloseFilters" title="Close Filters">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="filter-drawer-body">
+            <div class="filter-group">
+                <label for="filter-upload">Upload File</label>
+                <select id="filter-upload" class="form-control">
+                    <option value="">All Uploaded Datasets</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-district">District</label>
+                <select id="filter-district" class="form-control">
+                    <option value="">All Districts</option>
+                    <option value="Mueang">Mueang (เมืองภูเก็ต)</option>
+                    <option value="Kathu">Kathu (กะทู้)</option>
+                    <option value="Thalang">Thalang (ถลาง)</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-waste-type">Waste Type</label>
+                <select id="filter-waste-type" class="form-control">
+                    <option value="">All Types</option>
+                    <option value="Organic">Organic</option>
+                    <option value="General">General</option>
+                    <option value="Recycle">Recycle</option>
+                    <option value="Hazardous">Hazardous</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-tourist">Tourist Zone</label>
+                <select id="filter-tourist" class="form-control">
+                    <option value="">All Zones</option>
+                    <option value="Y">Tourist Zones Only (Y)</option>
+                    <option value="N">Non-Tourist Zones Only (N)</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Date Range</label>
+                <input type="date" id="filter-start-date" class="form-control" placeholder="Start Date">
+                <div style="text-align: center; font-size: 0.8rem; color: var(--text-muted); margin: 0.25rem 0;">to</div>
+                <input type="date" id="filter-end-date" class="form-control" placeholder="End Date">
+            </div>
+        </div>
+        <div class="filter-drawer-footer">
+            <button class="btn btn-secondary btn-sm" id="btnResetFilters" style="width: 100%;">Reset Filters</button>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- App Logic -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

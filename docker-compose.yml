@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  phuket-waste-app:
+    build: .
+    container_name: phuket_waste_app
+    expose:
+      - "5000"
+    environment:
+      - DATABASE_PATH=/app/data/phuket_waste.db
+      - RAW_DIR=/app/data/raw
+      - CLEAN_DIR=/app/data/clean
+      - LATEST_CLEAN_PATH=/app/data/latest_clean.csv
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: phuket_waste_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/usr/share/nginx/html/static:ro
+    depends_on:
+      - phuket-waste-app
+    restart: unless-stopped
