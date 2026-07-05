@@ -2,6 +2,9 @@
 
 This project is a Flask-based web application for uploading, cleaning, storing, and visualizing waste data for Phuket. It provides a dashboard for exploring waste quantities by district, waste type, disposal method, tourist zone, and collection site.
 
+> [!CAUTION]
+> This project is a education Do not use it in production
+
 ## Features
 
 - Upload CSV files containing waste-related records
@@ -82,5 +85,4 @@ python test_app.py
 ## Notes
 
 - The app expects CSV files with columns such as date, district, area, waste_type, quantity_kg, collection_site, disposal_method, and is_tourist_zone.
-- Missing or inconsistent values are handled during the cleaning step.
 - Sample data can be loaded directly from the UI for quick testing.
